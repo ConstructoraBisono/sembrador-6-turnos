@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Turno Digital - Constructora Bisonó</title>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: start;
+      min-height: 100vh;
+    }
+
+    .container {
+      background-color: #fff;
+      width: 100%;
+      max-width: 400px;
+      padding: 20px;
+      margin: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    h1, h2, p {
+      margin: 10px 0;
+    }
+
+    #turno-box {
+      font-size: 36px;
+      font-weight: bold;
+      color: #e74c3c;
+      margin: 20px 0 10px 0;
+    }
+
+    .subtitle {
+      font-weight: bold;
+      font-size: 18px;
+      margin-top: 20px;
+    }
+
+    button {
+      padding: 12px 20px;
+      font-size: 16px;
+      margin-top: 15px;
+      border: none;
+      border-radius: 8px;
+      background-color: #3498db;
+      color: white;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="turnoCard">
+    <h1>Constructora Bisonó</h1>
+    <p>Calle Olof Palme esquina Av. Luperón,<br>Distrito Nacional, República Dominicana</p>
+    <p>Teléfono: 809-548-6353</p>
+    <div class="subtitle">Residencial El Sembrador VI</div>
+
+    <div style="margin-top: 30px;" class="subtitle">Turno</div>
+    <div id="turno-box">A000</div>
+    <p id="fecha"></p>
+    <p id="enEspera"></p>
+
+    <button onclick="generarTurno()">Generar Turno</button>
+    <button onclick="descargarImagen()">Descargar Turno</button>
+  </div>
+
+  <script>
+    let contador = 1;
+    let enEspera = 0;
+
+    function generarTurno() {
+      const numeroTurno = `A${contador.toString().padStart(3, '0')}`;
+      document.getElementById("turno-box").textContent = numeroTurno;
+
+      const ahora = new Date();
+      const fechaHora = ahora.toLocaleString();
+      document.getElementById("fecha").textContent = `Fecha y hora: ${fechaHora}`;
+
+      enEspera++;
+      document.getElementById("enEspera").textContent = `Personas en espera: ${enEspera - 1}`;
+
+      // Enviar turno al servidor (opcional, requiere backend)
+      fetch('https://turnos-bisono-sembrador6.onrender.com/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          numero: numeroTurno,
+          telefono: prompt("Ingrese su número de WhatsApp (opcional):")
+        })
+      }).then(res => res.json()).catch(err => console.error(err));
+
+      contador++;
+    }
+
+    function descargarImagen() {
+      html2canvas(document.querySelector("#turnoCard")).then(canvas => {
+        let link = document.createElement('a');
+        link.download = 'mi_turno.jpg';
+        link.href = canvas.toDataURL('image/jpeg');
+        link.click();
+      });
+    }
+  </script>
+</body>
+</html>
