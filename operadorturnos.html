@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Panel de Operador - Turnos Bisonó</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 12px;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
+    th {
+      background-color: #3498db;
+      color: white;
+    }
+    select, button {
+      padding: 5px 10px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Panel de Turnos - Operador Bisonó</h1>
+  <table id="tablaTurnos">
+    <thead>
+      <tr>
+        <th>Turno</th>
+        <th>Teléfono</th>
+        <th>Estado</th>
+        <th>Acción</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Turnos se insertan dinámicamente -->
+    </tbody>
+  </table>
+
+  <script>
+    async function cargarTurnos() {
+      const res = await fetch('https://turnos-bisono-sembrador6.onrender.com/turnos');
+      const turnos = await res.json();
+      const tbody = document.querySelector('#tablaTurnos tbody');
+      tbody.innerHTML = '';
+
+      turnos.forEach((t, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${t.numero}</td>
+          <td>${t.telefono || 'No registrado'}</td>
+          <td>${t.estado}</td>
+          <td>
+            <select onchange="actualizarEstado('${t.numero}', this.value, ${i})">
+              <option value="Pendiente" ${t.estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+              <option value="En proceso" ${t.estado === 'En proceso' ? 'selected' : ''}>En proceso</option>
+              <option value="Finalizado" ${t.estado === 'Finalizado' ? 'selected' : ''}>Finalizado</option>
+            </select>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function actualizarEstado(turno, nuevoEstado, index) {
+      await fetch('https://turnos-bisono-sembrador6.onrender.com/actualizar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numero: turno, estado: nuevoEstado })
+      });
+
+      if (nuevoEstado === 'En proceso' || nuevoEstado === 'Finalizado') {
+        await fetch('https://turnos-bisono-sembrador6.onrender.com/notificar');
+      }
+
+      cargarTurnos();
+    }
+
+    cargarTurnos();
+    setInterval(cargarTurnos, 10000);
+  </script>
+</body>
+</html>
