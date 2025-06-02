@@ -1,96 +1,84 @@
-const express = require("express");
-const cors = require("cors");
-const fs = require("fs");
-const { v4: uuidv4 } = require("uuid");
-const axios = require("axios");
+cconst express = require('express');
+const bodyParser = require('body-parser');
+const axios = require('axios');
+const cors = require('cors');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const TURNOS_FILE = "./turnos.json";
 
 app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json());
 
-// Leer turnos desde archivo
-function getTurnos() {
-  if (!fs.existsSync(TURNOS_FILE)) return [];
-  const data = fs.readFileSync(TURNOS_FILE);
-  return JSON.parse(data);
-}
+let turnos = [];
 
-// Guardar turnos en archivo
-function saveTurnos(turnos) {
-  fs.writeFileSync(TURNOS_FILE, JSON.stringify(turnos, null, 2));
-}
-
-// Enviar mensaje WhatsApp usando la API
-async function enviarWhatsApp(telefono) {
-  try {
-    const mensaje = "¡Hola! es tu Turno, por favor acercate a nuestro Oficial de Ventas Bisono.";
-    await axios.post("https://waba.360dialog.io/v1/messages", {
-      to: `1${telefono}`,
-      type: "text",
-      text: { body: mensaje }
-    }, {
-      headers: {
-        "D360-API-KEY": "sk_33ed3140aca24e4c98cd75b52b5c7722",
-        "Content-Type": "application/json"
+function enviarMensajeWhatsApp(telefono) {
+  return axios.post(
+    'https://graph.facebook.com/v18.0/508852171945366/messages',
+    {
+      messaging_product: 'whatsapp',
+      to: telefono,
+      type: 'text',
+      text: {
+        body: '¡Hola! es tu Turno, por favor acercate a nuestro Oficial de Ventas Bisonó.'
       }
-    });
-    console.log("Mensaje enviado a", telefono);
-  } catch (error) {
-    console.error("Error al enviar WhatsApp:", error.response?.data || error.message);
-  }
+    },
+    {
+      headers: {
+        Authorization: 'Bearer sk_33ed3140aca24e4c98cd75b52b5c7722',
+        'Content-Type': 'application/json'
+      }
+    }
+  );
 }
 
-// Ruta para recibir un nuevo turno
-app.post("/", (req, res) => {
+// Recibe turnos nuevos
+app.post('/api/turnos', (req, res) => {
   const { numero, telefono } = req.body;
-  if (!numero || !telefono) return res.status(400).json({ error: "Faltan datos" });
+  if (!numero) return res.status(400).send({ error: 'Falta número de turno' });
 
-  const turnos = getTurnos();
   const nuevoTurno = {
-    id: uuidv4(),
     numero,
     telefono,
-    estado: "Pendiente",
-    fecha: new Date().toISOString()
+    estado: 'Pendiente',
+    timestamp: new Date()
   };
-  turnos.push(nuevoTurno);
-  saveTurnos(turnos);
 
-  res.json({ mensaje: "Turno registrado", turno: nuevoTurno });
+  turnos.push(nuevoTurno);
+  console.log('Turno recibido:', nuevoTurno);
+  res.status(201).send({ mensaje: 'Turno registrado', turno: nuevoTurno });
 });
 
-// Ruta para listar turnos
-app.get("/turnos", (req, res) => {
-  const turnos = getTurnos();
+// Ver todos los turnos
+app.get('/api/turnos', (req, res) => {
   res.json(turnos);
 });
 
-// Cambiar estado del turno y notificar siguiente
-app.put("/turnos/:id/estado", async (req, res) => {
-  const { id } = req.params;
-  const { estado } = req.body;
-  const turnos = getTurnos();
-  const index = turnos.findIndex(t => t.id === id);
-  if (index === -1) return res.status(404).json({ error: "Turno no encontrado" });
+// Cambiar estado del turno
+app.post('/api/turnos/:numero/estado', async (req, res) => {
+  const { numero } = req.params;
+  const { nuevoEstado } = req.body;
 
-  turnos[index].estado = estado;
-  saveTurnos(turnos);
+  const turno = turnos.find(t => t.numero === numero);
+  if (!turno) return res.status(404).send({ error: 'Turno no encontrado' });
 
-  if (estado === "En proceso" || estado === "Finalizado") {
-    // Buscar siguiente pendiente
-    const siguiente = turnos.find(t => t.estado === "Pendiente" && t.id !== id);
-    if (siguiente) {
-      await enviarWhatsApp(siguiente.telefono);
+  turno.estado = nuevoEstado;
+
+  // Si se marca como finalizado o en proceso, se notifica al siguiente pendiente
+  if (['Finalizado', 'En proceso'].includes(nuevoEstado)) {
+    const siguiente = turnos.find(t => t.estado === 'Pendiente');
+    if (siguiente && siguiente.telefono) {
+      try {
+        await enviarMensajeWhatsApp(siguiente.telefono);
+        console.log('Mensaje enviado a:', siguiente.telefono);
+      } catch (error) {
+        console.error('Error enviando mensaje:', error.response?.data || error.message);
+      }
     }
   }
 
-  res.json({ mensaje: "Estado actualizado", turno: turnos[index] });
+  res.send({ mensaje: 'Estado actualizado', turno });
 });
 
-// Iniciar servidor
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`Servidor funcionando en http://localhost:${PORT}`);
 });

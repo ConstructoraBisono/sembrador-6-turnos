@@ -1,73 +1,75 @@
-// backend_turnos_bisono/server.js
 const express = require('express');
 const cors = require('cors');
-const bodyParser = require('body-parser');
 const axios = require('axios');
 const app = express();
-const port = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
 let turnos = [];
+let contador = 0;
 
-// Ruta para recibir nuevo turno
+// Ruta para registrar turno
 app.post('/', (req, res) => {
   const { numero, telefono } = req.body;
-  if (!numero) return res.status(400).json({ error: 'Falta el número de turno' });
 
-  turnos.push({ numero, telefono, estado: 'Pendiente' });
-  res.json({ mensaje: 'Turno recibido' });
+  const nuevoTurno = {
+    id: contador++,
+    numero,
+    telefono,
+    estado: 'Pendiente'
+  };
+
+  turnos.push(nuevoTurno);
+  res.json({ success: true, turno: nuevoTurno });
 });
 
-// Ruta para listar todos los turnos
-app.get('/turnos', (req, res) => {
-  res.json(turnos);
-});
+// Ruta para cambiar estado de un turno
+app.post('/cambiar-estado', async (req, res) => {
+  const { id, estado } = req.body;
+  const turnoActual = turnos.find(t => t.id === id);
 
-// Ruta para actualizar estado de un turno
-app.post('/actualizar', (req, res) => {
-  const { numero, estado } = req.body;
-  const turno = turnos.find(t => t.numero === numero);
-  if (!turno) return res.status(404).json({ error: 'Turno no encontrado' });
+  if (!turnoActual) {
+    return res.status(404).json({ error: 'Turno no encontrado' });
+  }
 
-  turno.estado = estado;
-  res.json({ mensaje: 'Estado actualizado' });
-});
+  turnoActual.estado = estado;
 
-// Ruta para notificar al siguiente turno pendiente
-app.post('/notificar', async (req, res) => {
+  // Buscar siguiente turno pendiente
   const siguiente = turnos.find(t => t.estado === 'Pendiente');
 
-  if (siguiente && siguiente.telefono) {
+  if (siguiente) {
     try {
       await axios.post(
-        'https://graph.facebook.com/v18.0/508852171945366/messages',
+        'https://graph.facebook.com/v19.0/508852171945366/messages',
         {
           messaging_product: 'whatsapp',
-          to: siguiente.telefono.replace(/[^0-9]/g, ''),
+          to: siguiente.telefono,
           type: 'text',
           text: {
-            body: '¡Hola! es tu Turno, por favor acercate a nuestro Oficial de Ventas Bisonó.'
+            body: '¡Hola! es tu Turno, por favor acercate a nuestro Oficial de Ventas Bisono.'
           }
         },
         {
           headers: {
-            'Content-Type': 'application/json',
-            Authorization: 'Bearer sk_33ed3140aca24e4c98cd75b52b5c7722'
+            Authorization: 'Bearer sk_33ed3140aca24e4c98cd75b52b5c7722',
+            'Content-Type': 'application/json'
           }
         }
       );
-      res.json({ mensaje: 'Mensaje enviado al siguiente turno' });
-    } catch (err) {
-      console.error(err.response?.data || err);
-      res.status(500).json({ error: 'Error al enviar el mensaje' });
+    } catch (error) {
+      console.error('Error al enviar WhatsApp:', error.response?.data || error.message);
     }
-  } else {
-    res.json({ mensaje: 'No hay turnos pendientes o teléfono no disponible' });
   }
+
+  res.json({ success: true, actualizado: turnoActual });
 });
 
-app.listen(port, () => {
-  console.log(`Servidor corriendo en puerto ${port}`);
+app.get('/turnos', (req, res) => {
+  res.json(turnos);
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Servidor escuchando en http://localhost:${PORT}`);
 });
