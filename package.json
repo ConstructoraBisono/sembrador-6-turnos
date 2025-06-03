@@ -6,9 +6,3 @@
     "start": "node index.js"
   }
 }
-{
-  "main": "src/index.js",
-  "scripts": {
-    "start": "node src/index.js"
-  }
-}
