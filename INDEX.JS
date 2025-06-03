@@ -1,5 +1,5 @@
 {
-  "name": "sembrador-6-turnos",
+  "name": "turnos-bisono",
   "description": "Turnos Sembrador 6",
   "authors": "Sindy Well",
   "version": "1.0.0",
